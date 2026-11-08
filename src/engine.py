@@ -56,6 +56,7 @@ class Engine:
         self.typed_at = 0.0
         self.selection_at = None
         self.log = deque(maxlen=200)   # decisions, kept in memory only
+        self.stats = {"keys": 0, "words": 0, "resets": {}}
         self.configure(cfg, learned)
 
     # ---- configuration --------------------------------------------------
@@ -79,6 +80,7 @@ class Engine:
 
     # ---- events ---------------------------------------------------------
     def reset(self, why=""):
+        self.stats["resets"][why] = self.stats["resets"].get(why, 0) + 1
         self.buf.clear()
         self.version += 1
         self.last_fix = None
@@ -107,6 +109,7 @@ class Engine:
             return
         if value == 0:
             return
+        self.stats["keys"] += 1
         self.tap_key = self.last_tap = None
         mods = {MOD_CLASS[k] for k in self.held if k in MODIFIERS}
         if value == 1:
@@ -171,6 +174,8 @@ class Engine:
         if not word or not lang:
             return
         d = decide(word, lang, self.model)
+        self.stats["words"] += 1
+        self.stats["last"] = f"[{lang}] {'switch' if d.switch else 'keep'}: {d.reason}"
         if self.cfg["mode"] == "log":
             shown = word if lang == "en" else to_uk(word)
             self.log.append(f"{shown!r} [{lang}] -> {'SWITCH' if d.switch else 'keep'} ({d.reason})")

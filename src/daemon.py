@@ -297,6 +297,11 @@ class Daemon:
                          auto_here=eng.auto_allowed(), game=eng.game, layout=self.layout.lang(eng.device),
                          keyboards=[d.name for d in self.keyboards.values()],
                          learned={k: len(eng.learned[k]) for k in ("keep", "switch")})
+        elif cmd == "debug":
+            reply.update(stats=eng.stats, buf_len=len(eng.buf), held=sorted(eng.held),
+                         pending=bool(eng.pending), device=eng.device,
+                         layout=self.layout.lang(eng.device), window=eng.window_class,
+                         auto_here=eng.auto_allowed(), virtual_held=sorted(self.virtual_held))
         elif cmd == "log":
             reply["log"] = list(eng.log)
         elif cmd == "reload":
