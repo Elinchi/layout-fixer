@@ -167,6 +167,19 @@ def main():
     res.append(check("mid-word after an opening quote", scr.text, '"модуль'))
 
     eng, scr, _ = make("en")
+    type_text(eng, scr, '"gthtp,shrf kernel vjlekz" ')
+    res.append(check("quotes kept around fixed words", scr.text,
+                     '"перезбірка kernel модуля" '))
+
+    eng, scr, _ = make("en")
+    type_text(eng, scr, '"ghbdsn" wt ntcn? ')
+    res.append(check("closing quote out of en habit", scr.text, '"привіт" це тест, '))
+
+    eng, scr, _ = make("en")
+    type_text(eng, scr, '[v ')
+    res.append(check("interjection", scr.text, 'хм '))
+
+    eng, scr, _ = make("en")
     eng.on_window("org.omarchy.agent", False, window_id="0x1")
     type_text(eng, scr, "ghbd")
     eng.on_window("org.omarchy.agent", False, window_id="0x1")   # title spinner tick

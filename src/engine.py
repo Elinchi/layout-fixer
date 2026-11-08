@@ -12,7 +12,7 @@ from collections import deque
 from evdev import ecodes as e
 
 from keyboard import ALTS, CHAR_OF, CTRLS, KEY_OF, METAS, MODIFIERS, SHIFTS
-from layouts import UK_LETTERS, to_keys, to_uk
+from layouts import EN_LETTERS, UK_LETTERS, to_keys, to_uk
 from model import decide, decide_prefix
 
 OTHER = {"en": "uk", "uk": "en"}
@@ -127,7 +127,9 @@ class Engine:
             self._word_end()
             return
         if code in CHAR_OF:
-            self._append(CHAR_OF[code][1 if "shift" in mods else 0], device, now)
+            ch = CHAR_OF[code][1 if "shift" in mods else 0]
+            self._append(ch, device, now)
+            self._punct_after_fix(ch)
             self._early()
             return
         self.reset("navigation")
@@ -175,8 +177,8 @@ class Engine:
             return
         if d.switch:
             # Run once no key is held (see daemon); the user may type on meanwhile.
-            expect = word + " "
-            self.pending = lambda: self._auto_fix(start, expect, lang)
+            expect, (a, b) = word + " ", d.span
+            self.pending = lambda: self._auto_fix(start, expect, lang, a, b)
 
     def _early(self):
         """Fix a word while it is still being typed, when the start already
@@ -193,13 +195,49 @@ class Engine:
         lang = self.layout.lang(self.device)
         offset = decide_prefix(run, lang, self.model) if lang else None
         if offset is not None:
-            start += offset                       # keep an opening quote as it is
-            self.pending = lambda: self._auto_fix(start, run[offset:], lang)
+            self.pending = lambda: self._auto_fix(start, run, lang, offset, len(run))
 
-    def _auto_fix(self, start, expect, lang):
+    def _auto_fix(self, start, expect, lang, a, b):
         if "".join(self.buf[start:start + len(expect)]) != expect:
             return                                # edited meanwhile: leave it alone
-        self._retype(start, OTHER[lang], auto=True, word=expect.strip())
+        self._retype(start + a, OTHER[lang], auto=True, word=expect[a:b], end=start + b)
+
+    def _punct_after_fix(self, ch):
+        """Right after a word got switched to uk, `"` `,` `.` `;` typed out of en habit
+        come out as Є б ю ж. If the word is complete without that letter, put the
+        punctuation the user meant instead (typed with the uk key for it)."""
+        fix = self.last_fix
+        if (not fix or not fix["auto"] or fix.get("undone") or fix["to"] != "uk"
+                or ch.lower() in EN_LETTERS or not to_uk(ch).lower() in UK_LETTERS):
+            return
+        i = len(self.buf) - 1                      # ch was just appended here
+        word = "".join(self.buf[fix["start"]:i])
+        if " " in word or not word:
+            return
+        uk = to_uk(word).lower()
+        if uk not in self.model.words["uk"] or self.model.is_prefix(uk + to_uk(ch).lower(), "uk"):
+            return
+        key = self._same_char_key(ch, "en", "uk")
+        if key != ch:
+            self.pending = lambda: self._replace_key(i, ch, key)
+
+    def _replace_key(self, i, old, new):
+        if i >= len(self.buf) or self.buf[i] != old:
+            return
+        tail = self.buf[i:]
+        self.typist.backspace(len(tail))
+        self.buf[i] = new
+        self.typist.type_keys("".join(self.buf[i:]))
+
+    @staticmethod
+    def _same_char_key(key, from_lang, to_lang):
+        """The key that types, in `to_lang`, the character `key` typed in `from_lang`
+        (",": "?" -> ","), or `key` itself when `to_lang` has no such character."""
+        ch = key if from_lang == "en" else to_uk(key)
+        if to_lang == "en":
+            return ch if ch in KEY_OF else key
+        k = to_keys(ch)
+        return k if k in KEY_OF and to_uk(k) == ch else key
 
     # ---- actions --------------------------------------------------------
     def trigger(self, action):
@@ -215,15 +253,18 @@ class Engine:
         if fn:
             fn()
 
-    def _retype(self, start, to_lang, auto, word):
-        """Erase buf[start:] on screen and type the same keys in `to_lang`."""
-        tail = "".join(self.buf[start:])
+    def _retype(self, start, to_lang, auto, word, end=None):
+        """Erase buf[start:] on screen; type buf[start:end] as the same keys in
+        `to_lang`, and after it keep characters that exist there (`"`, `,`, space)."""
         from_lang = OTHER[to_lang]
-        self.typist.backspace(len(tail))
+        end = len(self.buf) if end is None else end
+        rest = [self._same_char_key(k, from_lang, to_lang) for k in self.buf[end:]]
+        self.typist.backspace(len(self.buf) - start)
         self.layout.switch(to_lang)
-        self.typist.type_keys(tail)
-        self.last_fix = {"start": start, "from": from_lang, "to": to_lang, "auto": auto,
-                         "word": word, "version": self.version}
+        self.buf[end:] = rest
+        self.typist.type_keys("".join(self.buf[start:]))
+        self.last_fix = {"start": start, "end": end, "from": from_lang, "to": to_lang,
+                         "auto": auto, "word": word, "version": self.version}
         if auto:
             self.log.append(f"auto: {word!r} {from_lang}->{to_lang}")
 
@@ -239,7 +280,7 @@ class Engine:
             # The last word was just fixed (maybe after a few letters, typed on since):
             # the hotkey undoes it, and an auto fix is remembered for the whole word.
             word = "".join(self.buf[fix["start"]:end]) or fix["word"]
-            self._retype(fix["start"], fix["from"], auto=False, word=word)
+            self._retype(fix["start"], fix["from"], auto=False, word=word, end=end)
             if fix["auto"]:
                 self._learn("keep", fix["from"], word)
             self.last_fix["undone"] = True
@@ -249,7 +290,7 @@ class Engine:
             self.notify("Нема що виправляти: слово не набране після останнього кліку")
             return
         word = "".join(self.buf[start:end])
-        self._retype(start, OTHER[lang], auto=False, word=word)
+        self._retype(start, OTHER[lang], auto=False, word=word, end=end)
         self._learn_manual(lang, word)
 
     def fix_selection(self):

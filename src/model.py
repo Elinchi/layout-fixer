@@ -169,6 +169,9 @@ class Decision:
     reason: str
     cur: Reading
     alt: Reading
+    # Part of the key run that is the word; around it (quotes, brackets) the
+    # characters are kept as they are when the word is retyped.
+    span: tuple[int, int] = (0, 0)
 
 
 def decide(keys: str, cur_lang: str, model: Model) -> Decision:
@@ -179,20 +182,21 @@ def decide(keys: str, cur_lang: str, model: Model) -> Decision:
     If that word stays, the untrimmed run gets one more, stricter look: "[eqjdj"
     is "хуйово", and "'" alone is "є". Then a last letter that is punctuation in
     the other layout is dropped: "Кгіеб" is "Rust,".
-    On a switch the whole run is retyped in the other layout.
+    On a switch `span` is the part retyped as keys in the other layout.
     """
     a, b = word_span(keys, cur_lang)
     res = _decide(keys[a:b], cur_lang, model)
+    res.span = (a, b)
     if res.switch or res.reason in ("user keep", "has digits"):
         return res
     if (a, b) != (0, len(keys)):
         alt = read(keys, res.alt.lang, model)
         if alt.strong or (alt.rare == 0 and res.cur.core and alt.avg - res.cur.avg > MARGIN):
-            return Decision(True, "untrimmed run", res.cur, alt)
+            return Decision(True, "untrimmed run", res.cur, alt, (0, len(keys)))
     if b - a > 2 and not word_span(keys[b - 1], res.alt.lang)[1]:
         sub = _decide(keys[a:b - 1], cur_lang, model)
         if sub.switch:
-            return Decision(True, "trailing punctuation: " + sub.reason, sub.cur, sub.alt)
+            return Decision(True, "trailing punctuation: " + sub.reason, sub.cur, sub.alt, (a, b))
     return res
 
 
