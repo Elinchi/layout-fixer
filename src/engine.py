@@ -52,6 +52,7 @@ class Engine:
         self.window_class = ""
         self.fullscreen = False
         self.game = False
+        self.window_id = None
         self.typed_at = 0.0
         self.selection_at = None
         self.log = deque(maxlen=200)   # decisions, kept in memory only
@@ -83,10 +84,14 @@ class Engine:
         self.last_fix = None
         self.pending = None
 
-    def on_window(self, cls, fullscreen, game=False):
+    def on_window(self, cls, fullscreen, game=False, window_id=None):
         self.window_class, self.fullscreen = cls, fullscreen
         self.game = game or any(p.fullmatch(cls) for p in self.games)
-        self.reset("window")
+        # Title changes (spinners in Codex/Claude redraw ~10x/s) also fire
+        # "activewindow"; only a different window means the text is elsewhere.
+        if window_id is None or window_id != self.window_id:
+            self.window_id = window_id
+            self.reset("window")
 
     def on_selection(self, now=None):
         self.selection_at = now or time.monotonic()

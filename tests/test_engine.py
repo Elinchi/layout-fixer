@@ -155,6 +155,15 @@ def main():
     type_text(eng, scr, "ghbdsn ")
     res.append(check("terminal excluded from auto", scr.text, "ghbdsn "))
 
+    eng, scr, _ = make("en")
+    eng.on_window("org.omarchy.agent", False, window_id="0x1")
+    type_text(eng, scr, "ghbd")
+    eng.on_window("org.omarchy.agent", False, window_id="0x1")   # title spinner tick
+    type_text(eng, scr, "sn ")
+    res.append(check("title change keeps the word", scr.text, "привіт "))
+    eng.on_window("org.omarchy.agent", False, window_id="0x2")
+    res.append(check("another window resets", eng.buf, []))
+
     eng, scr, _ = make("en", window="cs2")
     type_text(eng, scr, "ghbdsn ")
     double_tap(eng)

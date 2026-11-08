@@ -269,7 +269,8 @@ class Daemon:
             win = {}
         game = is_game(win.get("pid", 0)) or win.get("contentType") == "game"
         self.typist.delay = Typist.TERMINAL if is_terminal(win) else Typist.FAST
-        self.engine.on_window(win.get("class", ""), bool(win.get("fullscreen")), game)
+        self.engine.on_window(win.get("class", ""), bool(win.get("fullscreen")), game,
+                              win.get("address", ""))
 
     # ---- primary selection ---------------------------------------------
     async def watch_selection(self):
