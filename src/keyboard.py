@@ -35,17 +35,21 @@ DEVICE_NAME = "layout-fixer virtual keyboard"
 class Typist:
     """A virtual keyboard. It types *keys*, so the output follows the active layout."""
 
-    DELAY = 0.001
+    FAST = 0.001
+    # Terminal apps (Codex, ...) treat very fast key bursts as a paste and reorder
+    # them against Backspace, so type at "human" speed there.
+    TERMINAL = 0.006
 
     def __init__(self):
         # Every ordinary key, so keys queued during a grab can be replayed as-is.
         keys = set(range(e.KEY_ESC, e.KEY_MICMUTE + 1))
         self.ui = UInput({e.EV_KEY: sorted(keys)}, name=DEVICE_NAME)
+        self.delay = self.FAST
 
     def _key(self, code, value):
         self.ui.write(e.EV_KEY, code, value)
         self.ui.syn()
-        time.sleep(self.DELAY)
+        time.sleep(self.delay)
 
     def tap(self, code, *mods):
         for m in mods:

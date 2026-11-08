@@ -106,6 +106,15 @@ def is_game(pid: int) -> bool:
     return b"steamapps" in cmd or "steamapps" in exe
 
 
+def is_terminal(win: dict) -> bool:
+    """By class or by executable: org.omarchy.agent is Ghostty under another class."""
+    try:
+        exe = os.path.basename(os.readlink(f"/proc/{win.get('pid', 0)}/exe"))
+    except OSError:
+        exe = ""
+    return any(t in win.get("class", "").lower() or t in exe for t in TERMINALS)
+
+
 def notify_fn(cfg):
     def notify(text):
         if cfg["notify"]:
@@ -259,6 +268,7 @@ class Daemon:
         except (OSError, ValueError):
             win = {}
         game = is_game(win.get("pid", 0)) or win.get("contentType") == "game"
+        self.typist.delay = Typist.TERMINAL if is_terminal(win) else Typist.FAST
         self.engine.on_window(win.get("class", ""), bool(win.get("fullscreen")), game)
 
     # ---- primary selection ---------------------------------------------
