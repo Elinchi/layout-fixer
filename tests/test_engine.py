@@ -188,6 +188,11 @@ def main():
     eng.on_window("org.omarchy.agent", False, window_id="0x2")
     res.append(check("another window resets", eng.buf, []))
 
+    eng, scr, _ = make("en")
+    eng.on_window("com.mitchellh.ghostty", False, window_id="0x3", title="OC | kernel")
+    type_text(eng, scr, "ghbdsn ")
+    res.append(check("OpenCode in a terminal: auto on by title", scr.text, "привіт "))
+
     eng, scr, _ = make("en", window="cs2")
     type_text(eng, scr, "ghbdsn ")
     double_tap(eng)

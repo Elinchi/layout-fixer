@@ -31,6 +31,10 @@ DEFAULTS = {
         "code", "Code", "code-oss", "codium", "VSCodium", "dev.zed.Zed", "jetbrains-.*",
         "neovide", "org.keepassxc.KeePassXC", "1Password",
     ],
+    # Window titles (regex, full match) that turn auto mode back on inside an
+    # excluded app: chat-like TUIs in a terminal (OpenCode sets "OC | ...").
+    "allow_titles": ["OC \\| .*", "(?i).*opencode.*", "(?i).*codex.*", "(?i).*claude.*",
+                     "(?i).*aider.*"],
     # Games: everything off, hotkeys too (double Shift is sprint/sneak there).
     # Anything launched from a Steam library is treated as a game as well.
     "games": ["steam_app_.*", "gamescope", "cs2", "dota2", "[Mm]inecraft.*", "osu!"],

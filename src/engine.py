@@ -50,6 +50,7 @@ class Engine:
         self.tap_key = None
         self.last_tap = None
         self.window_class = ""
+        self.window_title = ""
         self.fullscreen = False
         self.game = False
         self.window_id = None
@@ -68,6 +69,7 @@ class Engine:
             if spec not in ("", "none"):
                 self.hotkeys[spec] = action
         self.exclude = [re.compile(p) for p in cfg["exclude"]]
+        self.allow_titles = [re.compile(p) for p in cfg.get("allow_titles", [])]
         self.games = [re.compile(p) for p in cfg.get("games", [])]
         self.model.user = {"keep": set(learned["keep"]), "switch": set(learned["switch"])}
 
@@ -76,6 +78,8 @@ class Engine:
             return False
         if self.fullscreen and not self.cfg["auto_in_fullscreen"]:
             return False
+        if any(p.fullmatch(self.window_title) for p in self.allow_titles):
+            return True
         return not any(p.fullmatch(self.window_class) for p in self.exclude)
 
     # ---- events ---------------------------------------------------------
@@ -86,8 +90,8 @@ class Engine:
         self.last_fix = None
         self.pending = None
 
-    def on_window(self, cls, fullscreen, game=False, window_id=None):
-        self.window_class, self.fullscreen = cls, fullscreen
+    def on_window(self, cls, fullscreen, game=False, window_id=None, title=""):
+        self.window_class, self.fullscreen, self.window_title = cls, fullscreen, title
         self.game = game or any(p.fullmatch(cls) for p in self.games)
         # Title changes (spinners in Codex/Claude redraw ~10x/s) also fire
         # "activewindow"; only a different window means the text is elsewhere.

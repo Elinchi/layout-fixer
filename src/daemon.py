@@ -270,7 +270,7 @@ class Daemon:
         game = is_game(win.get("pid", 0)) or win.get("contentType") == "game"
         self.typist.delay = Typist.TERMINAL if is_terminal(win) else Typist.FAST
         self.engine.on_window(win.get("class", ""), bool(win.get("fullscreen")), game,
-                              win.get("address", ""))
+                              win.get("address", ""), win.get("title", ""))
 
     # ---- primary selection ---------------------------------------------
     async def watch_selection(self):
@@ -301,6 +301,7 @@ class Daemon:
             reply.update(stats=eng.stats, buf_len=len(eng.buf), held=sorted(eng.held),
                          pending=bool(eng.pending), device=eng.device,
                          layout=self.layout.lang(eng.device), window=eng.window_class,
+                         title=eng.window_title,
                          auto_here=eng.auto_allowed(), virtual_held=sorted(self.virtual_held))
         elif cmd == "log":
             reply["log"] = list(eng.log)
