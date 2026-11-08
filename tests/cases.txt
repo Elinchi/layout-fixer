@@ -1,0 +1,17 @@
+# <lang> words...   — words as the user means them; eval checks both layouts.
+
+# surzhyk / slang / dialect
+uk шо тіпа капєц хуйово канєшно нормально щас ваще получається короче пофіг прікол прикольно
+uk скачай замутити кароч нєа ага ну файно ґазда бахнути жесть кринж топчик рофл лол норм спс
+uk пж мб хз ппц дякс сорі чєл братан тєма пацик шота нашо єслі всьо харош завтра піздець
+uk привіт як справи мені треба щоб він запускався написаний модом зробиш перевір
+uk я і у в на з до що це та не
+
+# user's mixed sentence (English parts)
+en minecraft mod rust forge fabric modpack
+
+# tech / names / chat
+en hyprland nvidia rtx remix dlss kubernetes nginx systemd kubectl pacman yay wtype wayland
+en ghostty omarchy github pytorch ffmpeg grep sudo chmod xkb dxvk proton steam linux async
+en struct impl fn println cargo rustc json yaml toml opengl vulkan shader mods ok lol wtf
+en btw idk imo gg wp hello thanks please download install config don't it's i a

@@ -1,0 +1,4 @@
+# Extra English words (chat, tech). One or more per line; counted as frequent.
+idk imo imho btw lol lmao wtf gg wp np thx ty pls plz omg brb afk tbh ngl ofc
+github gitlab rtx gtx dlss fsr xkb dxvk vkd3d async await fn impl println struct enum
+minecraft forge fabric modpack mod mods hyprland wayland nvidia amd ghostty omarchy remix

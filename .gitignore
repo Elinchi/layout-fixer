@@ -1,0 +1,4 @@
+data/raw/
+data/model.json.gz
+__pycache__/
+*.pyc
