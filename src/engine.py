@@ -13,7 +13,7 @@ from evdev import ecodes as e
 
 from keyboard import ALTS, CHAR_OF, CTRLS, KEY_OF, METAS, MODIFIERS, SHIFTS
 from layouts import UK_LETTERS, to_keys, to_uk
-from model import decide
+from model import decide, decide_prefix
 
 OTHER = {"en": "uk", "uk": "en"}
 MAX_BUF = 200
@@ -128,6 +128,7 @@ class Engine:
             return
         if code in CHAR_OF:
             self._append(CHAR_OF[code][1 if "shift" in mods else 0], device, now)
+            self._early()
             return
         self.reset("navigation")
 
@@ -177,6 +178,24 @@ class Engine:
             expect = word + " "
             self.pending = lambda: self._auto_fix(start, expect, lang)
 
+    def _early(self):
+        """Fix a word while it is still being typed, when the start already
+        settles it (vjle... = моду...): then Enter or a closing quote right
+        after the word is fine too. The space check still runs afterwards."""
+        if self.cfg["mode"] != "auto" or self.pending or not self.auto_allowed():
+            return
+        start = len(self.buf)
+        while start > 0 and self.buf[start - 1] != " ":
+            start -= 1
+        if self.last_fix and self.last_fix["start"] >= start:
+            return                                # this word was fixed (or undone) already
+        run = "".join(self.buf[start:])
+        lang = self.layout.lang(self.device)
+        offset = decide_prefix(run, lang, self.model) if lang else None
+        if offset is not None:
+            start += offset                       # keep an opening quote as it is
+            self.pending = lambda: self._auto_fix(start, run[offset:], lang)
+
     def _auto_fix(self, start, expect, lang):
         if "".join(self.buf[start:start + len(expect)]) != expect:
             return                                # edited meanwhile: leave it alone
@@ -209,20 +228,22 @@ class Engine:
             self.log.append(f"auto: {word!r} {from_lang}->{to_lang}")
 
     def fix_last(self):
-        fix = self.last_fix
-        if fix and fix["version"] == self.version:
-            # Same hotkey right after a fix = undo it, and remember the word.
-            self._retype(fix["start"], fix["from"], auto=False, word=fix["word"])
-            self.last_fix = None
-            if fix["auto"]:
-                self._learn("keep", fix["from"], fix["word"])
-            return
         end = len(self.buf)
         while end > 0 and self.buf[end - 1] == " ":
             end -= 1
         start = end
         while start > 0 and self.buf[start - 1] != " ":
             start -= 1
+        fix = self.last_fix
+        if fix and not fix.get("undone") and start <= fix["start"] < max(end, start + 1):
+            # The last word was just fixed (maybe after a few letters, typed on since):
+            # the hotkey undoes it, and an auto fix is remembered for the whole word.
+            word = "".join(self.buf[fix["start"]:end]) or fix["word"]
+            self._retype(fix["start"], fix["from"], auto=False, word=word)
+            if fix["auto"]:
+                self._learn("keep", fix["from"], word)
+            self.last_fix["undone"] = True
+            return
         lang = self.layout.lang(self.device)
         if start == end or not lang:
             self.notify("Нема що виправляти: слово не набране після останнього кліку")

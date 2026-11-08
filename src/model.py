@@ -3,6 +3,7 @@
 Lookups are dict hits: scoring a word costs O(len(word)), no word-list scans.
 """
 
+import bisect
 import gzip
 import json
 import math
@@ -25,6 +26,8 @@ MARGIN = 1.0         # alt must beat current by this many nats/char ...
 MARGIN_CLEAN = 2.0   # ... or this much when current has no rare trigrams
 MARGIN_KNOWN = -1.0  # ... or by this much (may be worse!) when alt is a frequent known word
 SHORT_RATIO = 10.0   # words <= 3 letters: alt freq / cur freq needed
+EARLY_MIN = 4        # mid-word fixes: at least this many letters typed ...
+EARLY_MARGIN = 1.5   # ... and alt must beat current by this much
 
 
 def lang_of(token: str) -> str | None:
@@ -59,6 +62,9 @@ class Model:
         self.total = {l: max(1, data[l]["total"]) for l in LANGS}
         self.vocab = {l: len(LETTERS[l]) + 2 for l in LANGS}
         self.tech = set(data.get("tech", []))
+        # Sorted vocabularies answer "is this a prefix of some word?" by bisect.
+        self.sorted = {l: sorted(self.words[l]) for l in LANGS}
+        self.sorted["en"] = sorted(set(self.sorted["en"]) | self.tech)
         self.user = {"keep": set(data.get("keep", [])), "switch": set(data.get("switch", []))}
 
     # ---- training -------------------------------------------------------
@@ -101,6 +107,22 @@ class Model:
             logp += math.log((k + ALPHA) / (ctx.get(c2, 0) + ALPHA * v))
             n += 1
         return logp / n, rare
+
+    def score_prefix(self, prefix: str, lang: str):
+        """Like score() but without the end-of-word marker."""
+        tri, ctx, v = self.tri[lang], self.ctx[lang], self.vocab[lang]
+        logp, rare, n = 0.0, 0, 0
+        for c2, c in list(trigrams(prefix))[:-1]:
+            k = tri.get(c2 + c, 0)
+            rare += k < RARE
+            logp += math.log((k + ALPHA) / (ctx.get(c2, 0) + ALPHA * v))
+            n += 1
+        return logp / n, rare
+
+    def is_prefix(self, prefix: str, lang: str) -> bool:
+        words = self.sorted[lang]
+        i = bisect.bisect_left(words, prefix)
+        return i < len(words) and words[i].startswith(prefix)
 
     def freq(self, word: str, lang: str) -> float:
         return self.words[lang].get(word, 0) / self.total[lang]
@@ -213,3 +235,29 @@ def _decide(keys: str, cur_lang: str, model: Model) -> Decision:
     if alt.rare <= cur.rare and gain > (MARGIN if cur.rare else MARGIN_CLEAN):
         return d(True, f"alt better +{gain:.2f}")
     return d(False, f"unsure {gain:+.2f}")
+
+
+def decide_prefix(keys: str, cur_lang: str, model: Model) -> int | None:
+    """Mid-word check, before any space: switch now only on overwhelming evidence,
+    so the word is already right when Enter (or a closing quote) comes instead.
+    Anything less waits for the full-word decide() at the space.
+    Returns the offset where the word starts in `keys` (after an opening quote
+    or bracket), or None to wait."""
+    a, b = word_span(keys, cur_lang)
+    if b != len(keys):
+        return None                       # ends in punctuation: wait for the space
+    keys = keys[a:]
+    alt_lang = "uk" if cur_lang == "en" else "en"
+    core = keys.lower()
+    if len(core) < EARLY_MIN or keys.isupper() or any(c.isdigit() for c in keys):
+        return None
+    if any(k.startswith(f"{cur_lang}:{core}") for k in model.user["keep"]):
+        return None
+    cur, alt = read(keys, cur_lang, model), read(keys, alt_lang, model)
+    if not cur.core or not alt.core:
+        return None
+    if model.is_prefix(cur.core, cur_lang) or not model.is_prefix(alt.core, alt_lang):
+        return None
+    cavg, crare = model.score_prefix(cur.core, cur_lang)
+    aavg, arare = model.score_prefix(alt.core, alt_lang)
+    return a if crare > 0 and arare == 0 and aavg - cavg > EARLY_MARGIN else None

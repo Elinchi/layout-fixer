@@ -156,6 +156,17 @@ def main():
     res.append(check("terminal excluded from auto", scr.text, "ghbdsn "))
 
     eng, scr, _ = make("en")
+    type_text(eng, scr, "gthtp,shrf kernel vjlekz")
+    res.append(check("mid-word: last word fixed before Enter", scr.text,
+                     "перезбірка kernel модуля"))
+    double_tap(eng)
+    res.append(check("mid-word fix can be undone", scr.text, "перезбірка kernel vjlekz"))
+
+    eng, scr, _ = make("en")
+    type_text(eng, scr, '"vjlekm')
+    res.append(check("mid-word after an opening quote", scr.text, '"модуль'))
+
+    eng, scr, _ = make("en")
     eng.on_window("org.omarchy.agent", False, window_id="0x1")
     type_text(eng, scr, "ghbd")
     eng.on_window("org.omarchy.agent", False, window_id="0x1")   # title spinner tick
